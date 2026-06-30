@@ -5,6 +5,7 @@ import "../briefing.css";
 
 type Briefing = {
   id: string;
+  loja_id: string | null;
   nome: string;
   pessoas: number;
   tipo_refeicao: string | null;
@@ -22,6 +23,18 @@ type Briefing = {
   created_at: string;
 };
 
+type Loja = { id: string; nome: string; slug: string };
+
+function slugify(v: string) {
+  return v
+    .normalize("NFD")
+    .replace(/[̀-ͯ]/g, "")
+    .toLowerCase()
+    .trim()
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/(^-|-$)/g, "");
+}
+
 export const Route = createFileRoute("/_authenticated/admin")({
   head: () => ({ meta: [{ title: "Painel — Briefings" }] }),
   component: AdminPage,
@@ -30,10 +43,22 @@ export const Route = createFileRoute("/_authenticated/admin")({
 function AdminPage() {
   const navigate = useNavigate();
   const [isAdmin, setIsAdmin] = useState<boolean | null>(null);
+  const [isGlobalAdmin, setIsGlobalAdmin] = useState(false);
+  const [myLojaId, setMyLojaId] = useState<string | null>(null);
+  const [lojas, setLojas] = useState<Loja[]>([]);
+  const [lojaFiltro, setLojaFiltro] = useState<string>("todas");
   const [briefings, setBriefings] = useState<Briefing[]>([]);
   const [loading, setLoading] = useState(true);
   const [selected, setSelected] = useState<Briefing | null>(null);
   const [userEmail, setUserEmail] = useState<string>("");
+
+  const loadBriefings = async () => {
+    const { data, error } = await supabase
+      .from("briefings")
+      .select("*")
+      .order("created_at", { ascending: false });
+    if (!error && data) setBriefings(data as Briefing[]);
+  };
 
   useEffect(() => {
     (async () => {
@@ -43,23 +68,38 @@ function AdminPage() {
         return;
       }
       setUserEmail(userData.user.email ?? "");
-      const { data: roleRows } = await supabase
+      const { data: roleRow } = await supabase
         .from("user_roles")
-        .select("role")
+        .select("role, loja_id")
         .eq("user_id", userData.user.id)
         .eq("role", "admin")
         .maybeSingle();
-      const admin = !!roleRows;
+      const admin = !!roleRow;
       setIsAdmin(admin);
       if (!admin) {
         setLoading(false);
         return;
       }
-      const { data, error } = await supabase
-        .from("briefings")
-        .select("*")
-        .order("created_at", { ascending: false });
-      if (!error && data) setBriefings(data as Briefing[]);
+      const global = roleRow.loja_id === null;
+      setIsGlobalAdmin(global);
+      setMyLojaId(roleRow.loja_id);
+
+      if (global) {
+        const { data: lojasData } = await supabase
+          .from("lojas")
+          .select("id, nome, slug")
+          .order("nome", { ascending: true });
+        setLojas(lojasData ?? []);
+      } else if (roleRow.loja_id) {
+        const { data: lojaData } = await supabase
+          .from("lojas")
+          .select("id, nome, slug")
+          .eq("id", roleRow.loja_id)
+          .maybeSingle();
+        if (lojaData) setLojas([lojaData]);
+      }
+
+      await loadBriefings();
       setLoading(false);
     })();
   }, [navigate]);
@@ -77,6 +117,14 @@ function AdminPage() {
       setSelected(null);
     }
   };
+
+  const lojaNome = (id: string | null) =>
+    lojas.find((l) => l.id === id)?.nome ?? "—";
+
+  const briefingsVisiveis =
+    isGlobalAdmin && lojaFiltro !== "todas"
+      ? briefings.filter((b) => b.loja_id === lojaFiltro)
+      : briefings;
 
   if (loading) {
     return (
@@ -137,7 +185,9 @@ function AdminPage() {
               marginBottom: 4,
             }}
           >
-            Painel da Equipe
+            {isGlobalAdmin
+              ? "Painel da Equipe — Todas as lojas"
+              : lojaNome(myLojaId)}
           </div>
           <h1
             style={{
@@ -175,11 +225,48 @@ function AdminPage() {
           padding: "32px 24px 80px",
         }}
       >
-        <div style={{ marginBottom: 24, color: "var(--muted)", fontSize: 14 }}>
-          {briefings.length} {briefings.length === 1 ? "briefing" : "briefings"}
+        {isGlobalAdmin && (
+          <LojasManager lojas={lojas} onChange={(novas) => setLojas(novas)} />
+        )}
+
+        <div
+          style={{
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "space-between",
+            flexWrap: "wrap",
+            gap: 12,
+            marginBottom: 24,
+          }}
+        >
+          <div style={{ color: "var(--muted)", fontSize: 14 }}>
+            {briefingsVisiveis.length}{" "}
+            {briefingsVisiveis.length === 1 ? "briefing" : "briefings"}
+          </div>
+          {isGlobalAdmin && lojas.length > 0 && (
+            <select
+              value={lojaFiltro}
+              onChange={(e) => setLojaFiltro(e.target.value)}
+              style={{
+                padding: "8px 12px",
+                borderRadius: 8,
+                border: "1px solid var(--border)",
+                fontSize: 13,
+                background: "var(--white)",
+                color: "var(--ink)",
+              }}
+            >
+              <option value="todas">Todas as lojas</option>
+              {lojas.map((l) => (
+                <option key={l.id} value={l.id}>
+                  {l.nome}
+                </option>
+              ))}
+            </select>
+          )}
         </div>
 
-        {briefings.length === 0 ? (
+        {briefingsVisiveis.length === 0 ? (
           <div
             style={{
               padding: 64,
@@ -200,7 +287,7 @@ function AdminPage() {
               gap: 16,
             }}
           >
-            {briefings.map((b) => (
+            {briefingsVisiveis.map((b) => (
               <button
                 key={b.id}
                 onClick={() => setSelected(b)}
@@ -221,6 +308,19 @@ function AdminPage() {
                   (e.currentTarget.style.borderColor = "var(--border)")
                 }
               >
+                {isGlobalAdmin && (
+                  <div
+                    style={{
+                      fontSize: 11,
+                      textTransform: "uppercase",
+                      letterSpacing: "0.08em",
+                      color: "var(--gold)",
+                      marginBottom: 6,
+                    }}
+                  >
+                    {lojaNome(b.loja_id)}
+                  </div>
+                )}
                 <div
                   style={{
                     fontFamily: "'Playfair Display', serif",
@@ -231,11 +331,19 @@ function AdminPage() {
                 >
                   {b.nome}
                 </div>
-                <div style={{ fontSize: 12, color: "var(--muted)", marginBottom: 12 }}>
+                <div
+                  style={{
+                    fontSize: 12,
+                    color: "var(--muted)",
+                    marginBottom: 12,
+                  }}
+                >
                   {new Date(b.created_at).toLocaleString("pt-BR")}
                 </div>
                 <div style={{ fontSize: 13, color: "var(--ink)" }}>
-                  {b.tipo_refeicao ? `${labelRefeicao(b.tipo_refeicao)} · ` : ""}
+                  {b.tipo_refeicao
+                    ? `${labelRefeicao(b.tipo_refeicao)} · `
+                    : ""}
                   {b.pessoas} pessoa(s)
                 </div>
               </button>
@@ -246,8 +354,172 @@ function AdminPage() {
 
       {selected && (
         <Modal onClose={() => setSelected(null)}>
-          <DetalheBriefing briefing={selected} onDelete={() => remove(selected.id)} />
+          <DetalheBriefing
+            briefing={selected}
+            lojaNome={isGlobalAdmin ? lojaNome(selected.loja_id) : null}
+            onDelete={() => remove(selected.id)}
+          />
         </Modal>
+      )}
+    </div>
+  );
+}
+
+function LojasManager({
+  lojas,
+  onChange,
+}: {
+  lojas: Loja[];
+  onChange: (lojas: Loja[]) => void;
+}) {
+  const [open, setOpen] = useState(false);
+  const [nome, setNome] = useState("");
+  const [creating, setCreating] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [copiedId, setCopiedId] = useState<string | null>(null);
+
+  const criarLoja = async () => {
+    if (!nome.trim()) return;
+    setCreating(true);
+    setError(null);
+    const slug = slugify(nome);
+    const { data, error: insertError } = await supabase
+      .from("lojas")
+      .insert({ nome: nome.trim(), slug })
+      .select("id, nome, slug")
+      .single();
+    setCreating(false);
+    if (insertError || !data) {
+      setError(
+        insertError?.message.includes("duplicate")
+          ? "Já existe uma loja com esse nome."
+          : "Não foi possível criar a loja.",
+      );
+      return;
+    }
+    onChange([...lojas, data].sort((a, b) => a.nome.localeCompare(b.nome)));
+    setNome("");
+  };
+
+  const copiarLink = (l: Loja) => {
+    const url = `${window.location.origin}/loja/${l.slug}`;
+    navigator.clipboard.writeText(url).then(() => {
+      setCopiedId(l.id);
+      setTimeout(() => setCopiedId(null), 1500);
+    });
+  };
+
+  return (
+    <div
+      style={{
+        background: "var(--white)",
+        border: "1px solid var(--border)",
+        borderRadius: 12,
+        padding: 20,
+        marginBottom: 32,
+      }}
+    >
+      <div
+        style={{
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "space-between",
+          cursor: "pointer",
+        }}
+        onClick={() => setOpen((o) => !o)}
+      >
+        <div
+          style={{
+            fontFamily: "'Playfair Display', serif",
+            fontSize: 18,
+            color: "var(--sage)",
+          }}
+        >
+          Lojas ({lojas.length})
+        </div>
+        <span style={{ fontSize: 13, color: "var(--muted)" }}>
+          {open ? "Ocultar" : "Gerenciar"}
+        </span>
+      </div>
+
+      {open && (
+        <div style={{ marginTop: 16 }}>
+          {lojas.length > 0 && (
+            <div style={{ marginBottom: 16 }}>
+              {lojas.map((l) => (
+                <div
+                  key={l.id}
+                  style={{
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "space-between",
+                    padding: "10px 0",
+                    borderBottom: "1px solid var(--border)",
+                    fontSize: 13,
+                  }}
+                >
+                  <div>
+                    <strong>{l.nome}</strong>{" "}
+                    <span style={{ color: "var(--muted)" }}>
+                      /loja/{l.slug}
+                    </span>
+                  </div>
+                  <button
+                    onClick={() => copiarLink(l)}
+                    style={{
+                      background: "transparent",
+                      border: "1px solid var(--border)",
+                      borderRadius: 6,
+                      padding: "4px 10px",
+                      fontSize: 12,
+                      cursor: "pointer",
+                      color: "var(--sage)",
+                    }}
+                  >
+                    {copiedId === l.id ? "Copiado!" : "Copiar link"}
+                  </button>
+                </div>
+              ))}
+            </div>
+          )}
+
+          <div style={{ display: "flex", gap: 8 }}>
+            <input
+              type="text"
+              placeholder="Nome da nova loja"
+              value={nome}
+              onChange={(e) => setNome(e.target.value)}
+              onKeyDown={(e) => e.key === "Enter" && criarLoja()}
+              style={{
+                flex: 1,
+                padding: "10px 12px",
+                borderRadius: 8,
+                border: "1.5px solid var(--border)",
+                fontSize: 13,
+              }}
+            />
+            <button
+              onClick={criarLoja}
+              disabled={creating || !nome.trim()}
+              style={{
+                background: "var(--sage)",
+                color: "var(--white)",
+                border: "none",
+                borderRadius: 8,
+                padding: "10px 18px",
+                fontSize: 13,
+                cursor: "pointer",
+              }}
+            >
+              {creating ? "Criando..." : "Adicionar"}
+            </button>
+          </div>
+          {error && (
+            <p style={{ color: "var(--error)", fontSize: 12, marginTop: 8 }}>
+              {error}
+            </p>
+          )}
+        </div>
       )}
     </div>
   );
@@ -264,7 +536,13 @@ function labelRefeicao(v: string) {
   );
 }
 
-function Modal({ children, onClose }: { children: React.ReactNode; onClose: () => void }) {
+function Modal({
+  children,
+  onClose,
+}: {
+  children: React.ReactNode;
+  onClose: () => void;
+}) {
   return (
     <div
       onClick={onClose}
@@ -329,16 +607,20 @@ function Row({ label, value }: { label: string; value: React.ReactNode }) {
       >
         {label}
       </div>
-      <div style={{ fontSize: 14, color: "var(--ink)", lineHeight: 1.6 }}>{value}</div>
+      <div style={{ fontSize: 14, color: "var(--ink)", lineHeight: 1.6 }}>
+        {value}
+      </div>
     </div>
   );
 }
 
 function DetalheBriefing({
   briefing: b,
+  lojaNome,
   onDelete,
 }: {
   briefing: Briefing;
+  lojaNome: string | null;
   onDelete: () => void;
 }) {
   return (
@@ -352,6 +634,7 @@ function DetalheBriefing({
           marginBottom: 8,
         }}
       >
+        {lojaNome ? `${lojaNome} · ` : ""}
         {new Date(b.created_at).toLocaleString("pt-BR")}
       </div>
       <h2
@@ -367,7 +650,10 @@ function DetalheBriefing({
       </h2>
 
       <Row label="Pessoas" value={`${b.pessoas}`} />
-      <Row label="Tipo de refeição" value={b.tipo_refeicao && labelRefeicao(b.tipo_refeicao)} />
+      <Row
+        label="Tipo de refeição"
+        value={b.tipo_refeicao && labelRefeicao(b.tipo_refeicao)}
+      />
       <Row label="Restrições" value={b.restricoes.join(", ")} />
       <Row label="Não aprecia" value={b.nao_gosta} />
       <Row label="Favoritos" value={b.favoritos} />
@@ -380,7 +666,12 @@ function DetalheBriefing({
         label="Playlist Spotify"
         value={
           b.spotify ? (
-            <a href={b.spotify} target="_blank" rel="noreferrer" style={{ color: "var(--sage)" }}>
+            <a
+              href={b.spotify}
+              target="_blank"
+              rel="noreferrer"
+              style={{ color: "var(--sage)" }}
+            >
               {b.spotify}
             </a>
           ) : null
@@ -389,7 +680,13 @@ function DetalheBriefing({
       <Row label="Artista favorito" value={b.artista_fav} />
       <Row label="Observações" value={b.obs} />
 
-      <div style={{ marginTop: 24, paddingTop: 16, borderTop: "1px solid var(--border)" }}>
+      <div
+        style={{
+          marginTop: 24,
+          paddingTop: 16,
+          borderTop: "1px solid var(--border)",
+        }}
+      >
         <button
           onClick={onDelete}
           style={{

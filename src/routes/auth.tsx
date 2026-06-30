@@ -8,11 +8,15 @@ export const Route = createFileRoute("/auth")({
   component: AuthPage,
 });
 
+type Loja = { id: string; nome: string; slug: string };
+
 function AuthPage() {
   const navigate = useNavigate();
   const [mode, setMode] = useState<"signin" | "signup">("signin");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [lojas, setLojas] = useState<Loja[]>([]);
+  const [lojaId, setLojaId] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [info, setInfo] = useState<string | null>(null);
@@ -23,26 +27,46 @@ function AuthPage() {
     });
   }, [navigate]);
 
+  useEffect(() => {
+    if (mode !== "signup") return;
+    supabase
+      .from("lojas")
+      .select("id, nome, slug")
+      .order("nome", { ascending: true })
+      .then(({ data }) => setLojas(data ?? []));
+  }, [mode]);
+
   const submit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError(null);
     setInfo(null);
     setLoading(true);
     if (mode === "signin") {
-      const { error } = await supabase.auth.signInWithPassword({ email, password });
+      const { error } = await supabase.auth.signInWithPassword({
+        email,
+        password,
+      });
       setLoading(false);
       if (error) return setError("E-mail ou senha inválidos.");
       navigate({ to: "/admin" });
     } else {
+      if (lojas.length > 0 && !lojaId) {
+        setLoading(false);
+        return setError("Selecione a loja à qual sua conta pertence.");
+      }
       const { data, error } = await supabase.auth.signUp({
         email,
         password,
-        options: { emailRedirectTo: `${window.location.origin}/admin` },
+        options: {
+          emailRedirectTo: `${window.location.origin}/admin`,
+          data: lojaId ? { loja_id: lojaId } : undefined,
+        },
       });
       setLoading(false);
       if (error) return setError(error.message);
       if (data.session) navigate({ to: "/admin" });
-      else setInfo("Conta criada. Verifique seu e-mail para confirmar o acesso.");
+      else
+        setInfo("Conta criada. Verifique seu e-mail para confirmar o acesso.");
     }
   };
 
@@ -82,7 +106,10 @@ function AuthPage() {
           </h1>
         </div>
 
-        <form onSubmit={submit} style={{ display: "flex", flexDirection: "column", gap: 16 }}>
+        <form
+          onSubmit={submit}
+          style={{ display: "flex", flexDirection: "column", gap: 16 }}
+        >
           <div className="field" style={{ marginBottom: 0 }}>
             <label>E-mail</label>
             <input
@@ -105,15 +132,65 @@ function AuthPage() {
             />
           </div>
 
-          {error && <p style={{ color: "var(--error)", fontSize: 13 }}>{error}</p>}
+          {mode === "signup" && lojas.length > 0 && (
+            <div className="field" style={{ marginBottom: 0 }}>
+              <label>Loja</label>
+              <select
+                required
+                value={lojaId}
+                onChange={(e) => setLojaId(e.target.value)}
+                style={{
+                  width: "100%",
+                  padding: "12px 14px",
+                  border: "1.5px solid var(--border)",
+                  borderRadius: 8,
+                  background: "var(--white)",
+                  fontFamily: "inherit",
+                  fontSize: 14,
+                  color: "var(--ink)",
+                }}
+              >
+                <option value="" disabled>
+                  Selecione sua loja
+                </option>
+                {lojas.map((l) => (
+                  <option key={l.id} value={l.id}>
+                    {l.nome}
+                  </option>
+                ))}
+              </select>
+            </div>
+          )}
+
+          {error && (
+            <p style={{ color: "var(--error)", fontSize: 13 }}>{error}</p>
+          )}
           {info && <p style={{ color: "var(--sage)", fontSize: 13 }}>{info}</p>}
 
-          <button className="btn-submit" type="submit" disabled={loading} style={{ marginTop: 8 }}>
-            <span>{loading ? "Aguarde..." : mode === "signin" ? "Entrar" : "Criar conta"}</span>
+          <button
+            className="btn-submit"
+            type="submit"
+            disabled={loading}
+            style={{ marginTop: 8 }}
+          >
+            <span>
+              {loading
+                ? "Aguarde..."
+                : mode === "signin"
+                  ? "Entrar"
+                  : "Criar conta"}
+            </span>
           </button>
         </form>
 
-        <p style={{ textAlign: "center", marginTop: 24, fontSize: 13, color: "var(--muted)" }}>
+        <p
+          style={{
+            textAlign: "center",
+            marginTop: 24,
+            fontSize: 13,
+            color: "var(--muted)",
+          }}
+        >
           {mode === "signin" ? "Ainda não tem conta?" : "Já tem conta?"}{" "}
           <button
             type="button"
@@ -135,7 +212,14 @@ function AuthPage() {
           </button>
         </p>
 
-        <p style={{ textAlign: "center", marginTop: 16, fontSize: 12, color: "var(--muted)" }}>
+        <p
+          style={{
+            textAlign: "center",
+            marginTop: 16,
+            fontSize: 12,
+            color: "var(--muted)",
+          }}
+        >
           <Link to="/" style={{ color: "var(--muted)" }}>
             ← Voltar ao briefing
           </Link>

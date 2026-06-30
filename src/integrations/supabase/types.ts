@@ -23,6 +23,7 @@ export type Database = {
           created_at: string
           favoritos: string | null
           id: string
+          loja_id: string | null
           musicas: string[]
           nao_gosta: string | null
           nome: string
@@ -41,6 +42,7 @@ export type Database = {
           created_at?: string
           favoritos?: string | null
           id?: string
+          loja_id?: string | null
           musicas?: string[]
           nao_gosta?: string | null
           nome: string
@@ -59,6 +61,7 @@ export type Database = {
           created_at?: string
           favoritos?: string | null
           id?: string
+          loja_id?: string | null
           musicas?: string[]
           nao_gosta?: string | null
           nome?: string
@@ -69,28 +72,68 @@ export type Database = {
           spotify?: string | null
           tipo_refeicao?: string | null
         }
+        Relationships: [
+          {
+            foreignKeyName: "briefings_loja_id_fkey"
+            columns: ["loja_id"]
+            isOneToOne: false
+            referencedRelation: "lojas"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      lojas: {
+        Row: {
+          created_at: string
+          id: string
+          nome: string
+          slug: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          nome: string
+          slug: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          nome?: string
+          slug?: string
+        }
         Relationships: []
       }
       user_roles: {
         Row: {
           created_at: string
           id: string
+          loja_id: string | null
           role: Database["public"]["Enums"]["app_role"]
           user_id: string
         }
         Insert: {
           created_at?: string
           id?: string
+          loja_id?: string | null
           role: Database["public"]["Enums"]["app_role"]
           user_id: string
         }
         Update: {
           created_at?: string
           id?: string
+          loja_id?: string | null
           role?: Database["public"]["Enums"]["app_role"]
           user_id?: string
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "user_roles_loja_id_fkey"
+            columns: ["loja_id"]
+            isOneToOne: false
+            referencedRelation: "lojas"
+            referencedColumns: ["id"]
+          },
+        ]
       }
     }
     Views: {
@@ -103,6 +146,10 @@ export type Database = {
           _user_id: string
         }
         Returns: boolean
+      }
+      user_loja_id: {
+        Args: { _user_id: string }
+        Returns: string
       }
     }
     Enums: {
