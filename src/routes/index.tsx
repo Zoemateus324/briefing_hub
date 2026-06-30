@@ -27,22 +27,12 @@ type RefeicaoOption = { value: string; icon: string; label: string };
 type RecepcaoOption = { value: string; icon: string; label: string };
 type ChipOption = { value: string; label: string };
 
-const TIPOS_REFEICAO: RefeicaoOption[] = [
-  { value: "cafe", icon: "☕", label: "Café da manhã" },
-  { value: "almoco", icon: "🍽️", label: "Almoço" },
-  { value: "janta", icon: "🌙", label: "Jantar" },
-  { value: "brunch", icon: "🥂", label: "Brunch" },
-];
+
 
 const RESTRICOES: ChipOption[] = [
-  { value: "vegetariano", label: "🌱 Vegetariano" },
-  { value: "vegano", label: "🥦 Vegano" },
-  { value: "sem_gluten", label: "🌾 Sem glúten" },
-  { value: "sem_lactose", label: "🥛 Sem lactose" },
-  { value: "sem_frutos_mar", label: "🦐 Sem frutos do mar" },
-  { value: "sem_carne_vermelha", label: "🥩 Sem carne vermelha" },
-  { value: "low_carb", label: "⚡ Low carb" },
-  { value: "diabetico", label: "💊 Diabético(a)" },
+  { value: "doce", label: "Doce" },
+  { value: "salgado", label: "Salgados" },
+
   { value: "nenhuma", label: "✅ Nenhuma" },
 ];
 
@@ -56,7 +46,7 @@ const BEBIDAS: ChipOption[] = [
   { value: "vinho", label: "🍷 Vinho" },
   { value: "cerveja", label: "🍺 Cerveja" },
   { value: "agua_mineral", label: "💧 Água mineral" },
-  { value: "smoothie", label: "🥤 Smoothie" },
+  { value: "smoothie", label: "🥤 Capuccino" },
 ];
 
 const RECEPCOES: RecepcaoOption[] = [
@@ -226,34 +216,12 @@ function BriefingPage() {
         </div>
         <div className="section-divider" />
 
-        {/* 2 */}
-        <div className="section">
-          <div className="section-label">
-            <div className="section-num">2</div>
-            <div className="section-title">Qual momento vamos compartilhar?</div>
-          </div>
-          <div className="field">
-            <label>Tipo de refeição</label>
-            <div className="radio-cards">
-              {TIPOS_REFEICAO.map((o) => (
-                <div
-                  key={o.value}
-                  className={`radio-card${tipoRefeicao === o.value ? " active" : ""}`}
-                  onClick={() => setTipoRefeicao(o.value)}
-                >
-                  <div className="rc-icon">{o.icon}</div>
-                  <div className="rc-label">{o.label}</div>
-                </div>
-              ))}
-            </div>
-          </div>
-        </div>
-        <div className="section-divider" />
+    
 
         {/* 3 */}
         <div className="section">
           <div className="section-label">
-            <div className="section-num">3</div>
+            <div className="section-num">2</div>
             <div className="section-title">O que você gosta de comer?</div>
           </div>
           <div className="field">
@@ -300,7 +268,7 @@ function BriefingPage() {
         {/* 4 */}
         <div className="section">
           <div className="section-label">
-            <div className="section-num">4</div>
+            <div className="section-num">3</div>
             <div className="section-title">O que você gosta de beber?</div>
           </div>
           <div className="field">
@@ -334,42 +302,12 @@ function BriefingPage() {
         </div>
         <div className="section-divider" />
 
-        {/* 5 */}
-        <div className="section">
-          <div className="section-label">
-            <div className="section-num">5</div>
-            <div className="section-title">Como prefere ser recebido(a)?</div>
-          </div>
-          <div className="field">
-            <label>Estilo de recepção</label>
-            <div className="radio-cards">
-              {RECEPCOES.map((o) => (
-                <div
-                  key={o.value}
-                  className={`radio-card${recepcao === o.value ? " active" : ""}`}
-                  onClick={() => setRecepcao(o.value)}
-                >
-                  <div className="rc-icon">{o.icon}</div>
-                  <div className="rc-label">{o.label}</div>
-                </div>
-              ))}
-            </div>
-          </div>
-          <div className="field">
-            <label>Algo especial que tornaria sua chegada mais agradável?</label>
-            <textarea
-              placeholder="Ex: prefiro ambiente mais silencioso, gosto de ser apresentado(a) ao espaço antes, etc."
-              value={chegada}
-              onChange={(e) => setChegada(e.target.value)}
-            />
-          </div>
-        </div>
-        <div className="section-divider" />
+   
 
         {/* 6 */}
         <div className="section">
           <div className="section-label">
-            <div className="section-num">6</div>
+            <div className="section-num">4</div>
             <div className="section-title">A trilha sonora do seu momento</div>
           </div>
           <div className="field">
@@ -416,7 +354,7 @@ function BriefingPage() {
         {/* 7 */}
         <div className="section">
           <div className="section-label">
-            <div className="section-num">7</div>
+            <div className="section-num">5</div>
             <div className="section-title">Mais alguma coisa?</div>
           </div>
           <div className="field">
