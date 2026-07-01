@@ -1,4 +1,4 @@
-import { createFileRoute, useNavigate } from "@tanstack/react-router";
+import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import "../briefing.css";
@@ -20,7 +20,11 @@ type Briefing = {
   artista_fav: string | null;
   obs: string | null;
   created_at: string;
+  store_id: string | null;
 };
+
+type Store = { id: string; name: string; slug: string };
+type Role = "admin" | "manager" | "staff" | null;
 
 export const Route = createFileRoute("/_authenticated/admin")({
   head: () => ({ meta: [{ title: "Painel — Briefings" }] }),
@@ -29,11 +33,14 @@ export const Route = createFileRoute("/_authenticated/admin")({
 
 function AdminPage() {
   const navigate = useNavigate();
-  const [isAdmin, setIsAdmin] = useState<boolean | null>(null);
+  const [role, setRole] = useState<Role>(null);
+  const [userStoreId, setUserStoreId] = useState<string | null>(null);
   const [briefings, setBriefings] = useState<Briefing[]>([]);
+  const [stores, setStores] = useState<Store[]>([]);
   const [loading, setLoading] = useState(true);
   const [selected, setSelected] = useState<Briefing | null>(null);
   const [userEmail, setUserEmail] = useState<string>("");
+  const [filterStore, setFilterStore] = useState<string>("");
 
   useEffect(() => {
     (async () => {
@@ -43,23 +50,34 @@ function AdminPage() {
         return;
       }
       setUserEmail(userData.user.email ?? "");
+
       const { data: roleRows } = await supabase
         .from("user_roles")
-        .select("role")
-        .eq("user_id", userData.user.id)
-        .eq("role", "admin")
-        .maybeSingle();
-      const admin = !!roleRows;
-      setIsAdmin(admin);
-      if (!admin) {
-        setLoading(false);
-        return;
+        .select("role, store_id")
+        .eq("user_id", userData.user.id);
+
+      const roles = (roleRows ?? []) as { role: Role; store_id: string | null }[];
+      let resolved: Role = null;
+      let store: string | null = null;
+      if (roles.some((r) => r.role === "admin")) resolved = "admin";
+      else if (roles.some((r) => r.role === "manager")) {
+        resolved = "manager";
+        store = roles.find((r) => r.role === "manager")?.store_id ?? null;
+      } else if (roles.some((r) => r.role === "staff")) {
+        resolved = "staff";
+        store = roles.find((r) => r.role === "staff")?.store_id ?? null;
       }
-      const { data, error } = await supabase
-        .from("briefings")
-        .select("*")
-        .order("created_at", { ascending: false });
-      if (!error && data) setBriefings(data as Briefing[]);
+      setRole(resolved);
+      setUserStoreId(store);
+
+      if (resolved) {
+        const [{ data: bs }, { data: ss }] = await Promise.all([
+          supabase.from("briefings").select("*").order("created_at", { ascending: false }),
+          supabase.from("stores").select("id, name, slug"),
+        ]);
+        setBriefings((bs ?? []) as Briefing[]);
+        setStores((ss ?? []) as Store[]);
+      }
       setLoading(false);
     })();
   }, [navigate]);
@@ -75,8 +93,17 @@ function AdminPage() {
     if (!error) {
       setBriefings((b) => b.filter((x) => x.id !== id));
       setSelected(null);
+    } else {
+      alert(error.message);
     }
   };
+
+  const storeName = (id: string | null) => stores.find((s) => s.id === id)?.name ?? "—";
+
+  const filtered =
+    role === "admin" && filterStore
+      ? briefings.filter((b) => b.store_id === filterStore)
+      : briefings;
 
   if (loading) {
     return (
@@ -86,7 +113,7 @@ function AdminPage() {
     );
   }
 
-  if (!isAdmin) {
+  if (!role) {
     return (
       <div style={{ padding: 48, textAlign: "center" }}>
         <h2
@@ -99,22 +126,21 @@ function AdminPage() {
           Sem permissão
         </h2>
         <p style={{ color: "var(--muted)", fontSize: 14 }}>
-          Sua conta não tem acesso ao painel. Peça a um admin para liberar.
+          Sua conta não está vinculada a uma loja. Peça a um admin para liberar.
         </p>
-        <button
-          className="btn-submit"
-          onClick={signOut}
-          style={{ marginTop: 24 }}
-        >
+        <button className="btn-submit" onClick={signOut} style={{ marginTop: 24 }}>
           <span>Sair</span>
         </button>
       </div>
     );
   }
 
+  const canDelete = role === "admin" || role === "manager";
+  const currentStoreLabel =
+    role === "admin" ? "Todas as lojas" : storeName(userStoreId);
+
   return (
     <div style={{ minHeight: "100vh" }}>
-      {/* Top bar */}
       <div
         style={{
           background: "var(--sage)",
@@ -137,19 +163,28 @@ function AdminPage() {
               marginBottom: 4,
             }}
           >
-            Painel da Equipe
+            Painel · {role} · {currentStoreLabel}
           </div>
-          <h1
-            style={{
-              fontFamily: "'Playfair Display', serif",
-              fontSize: 24,
-              fontWeight: 400,
-            }}
-          >
+          <h1 style={{ fontFamily: "'Playfair Display', serif", fontSize: 24, fontWeight: 400 }}>
             Briefings recebidos
           </h1>
         </div>
-        <div style={{ display: "flex", alignItems: "center", gap: 16 }}>
+        <div style={{ display: "flex", alignItems: "center", gap: 12, flexWrap: "wrap" }}>
+          {role === "admin" && (
+            <Link
+              to="/_authenticated/lojas"
+              style={{
+                color: "var(--white)",
+                border: "1px solid rgba(255,255,255,0.4)",
+                padding: "8px 16px",
+                borderRadius: 8,
+                fontSize: 13,
+                textDecoration: "none",
+              }}
+            >
+              Gerenciar lojas
+            </Link>
+          )}
           <span style={{ fontSize: 13, opacity: 0.8 }}>{userEmail}</span>
           <button
             onClick={signOut}
@@ -168,18 +203,44 @@ function AdminPage() {
         </div>
       </div>
 
-      <div
-        style={{
-          maxWidth: 1100,
-          margin: "0 auto",
-          padding: "32px 24px 80px",
-        }}
-      >
-        <div style={{ marginBottom: 24, color: "var(--muted)", fontSize: 14 }}>
-          {briefings.length} {briefings.length === 1 ? "briefing" : "briefings"}
+      <div style={{ maxWidth: 1100, margin: "0 auto", padding: "32px 24px 80px" }}>
+        <div
+          style={{
+            marginBottom: 24,
+            display: "flex",
+            justifyContent: "space-between",
+            alignItems: "center",
+            gap: 12,
+            flexWrap: "wrap",
+          }}
+        >
+          <div style={{ color: "var(--muted)", fontSize: 14 }}>
+            {filtered.length} {filtered.length === 1 ? "briefing" : "briefings"}
+          </div>
+          {role === "admin" && (
+            <select
+              value={filterStore}
+              onChange={(e) => setFilterStore(e.target.value)}
+              style={{
+                padding: "8px 12px",
+                border: "1px solid var(--border)",
+                borderRadius: 8,
+                fontSize: 13,
+                background: "var(--white)",
+                fontFamily: "inherit",
+              }}
+            >
+              <option value="">Todas as lojas</option>
+              {stores.map((s) => (
+                <option key={s.id} value={s.id}>
+                  {s.name}
+                </option>
+              ))}
+            </select>
+          )}
         </div>
 
-        {briefings.length === 0 ? (
+        {filtered.length === 0 ? (
           <div
             style={{
               padding: 64,
@@ -200,7 +261,7 @@ function AdminPage() {
               gap: 16,
             }}
           >
-            {briefings.map((b) => (
+            {filtered.map((b) => (
               <button
                 key={b.id}
                 onClick={() => setSelected(b)}
@@ -211,16 +272,21 @@ function AdminPage() {
                   borderRadius: 12,
                   padding: 20,
                   cursor: "pointer",
-                  transition: "border-color 0.18s, transform 0.15s",
+                  transition: "border-color 0.18s",
                   fontFamily: "inherit",
                 }}
-                onMouseEnter={(e) =>
-                  (e.currentTarget.style.borderColor = "var(--sage-light)")
-                }
-                onMouseLeave={(e) =>
-                  (e.currentTarget.style.borderColor = "var(--border)")
-                }
               >
+                <div
+                  style={{
+                    fontSize: 10,
+                    textTransform: "uppercase",
+                    letterSpacing: "0.14em",
+                    color: "var(--gold)",
+                    marginBottom: 6,
+                  }}
+                >
+                  {storeName(b.store_id)}
+                </div>
                 <div
                   style={{
                     fontFamily: "'Playfair Display', serif",
@@ -246,7 +312,12 @@ function AdminPage() {
 
       {selected && (
         <Modal onClose={() => setSelected(null)}>
-          <DetalheBriefing briefing={selected} onDelete={() => remove(selected.id)} />
+          <DetalheBriefing
+            briefing={selected}
+            storeName={storeName(selected.store_id)}
+            canDelete={canDelete}
+            onDelete={() => remove(selected.id)}
+          />
         </Modal>
       )}
     </div>
@@ -255,12 +326,7 @@ function AdminPage() {
 
 function labelRefeicao(v: string) {
   return (
-    {
-      cafe: "Café da manhã",
-      almoco: "Almoço",
-      janta: "Jantar",
-      brunch: "Brunch",
-    }[v] ?? v
+    { cafe: "Café da manhã", almoco: "Almoço", janta: "Jantar", brunch: "Brunch" }[v] ?? v
   );
 }
 
@@ -336,9 +402,13 @@ function Row({ label, value }: { label: string; value: React.ReactNode }) {
 
 function DetalheBriefing({
   briefing: b,
+  storeName,
+  canDelete,
   onDelete,
 }: {
   briefing: Briefing;
+  storeName: string;
+  canDelete: boolean;
   onDelete: () => void;
 }) {
   return (
@@ -352,7 +422,7 @@ function DetalheBriefing({
           marginBottom: 8,
         }}
       >
-        {new Date(b.created_at).toLocaleString("pt-BR")}
+        {storeName} · {new Date(b.created_at).toLocaleString("pt-BR")}
       </div>
       <h2
         style={{
@@ -389,23 +459,25 @@ function DetalheBriefing({
       <Row label="Artista favorito" value={b.artista_fav} />
       <Row label="Observações" value={b.obs} />
 
-      <div style={{ marginTop: 24, paddingTop: 16, borderTop: "1px solid var(--border)" }}>
-        <button
-          onClick={onDelete}
-          style={{
-            background: "transparent",
-            border: "1px solid var(--error)",
-            color: "var(--error)",
-            padding: "8px 16px",
-            borderRadius: 8,
-            cursor: "pointer",
-            fontSize: 13,
-            fontFamily: "inherit",
-          }}
-        >
-          Excluir briefing
-        </button>
-      </div>
+      {canDelete && (
+        <div style={{ marginTop: 24, paddingTop: 16, borderTop: "1px solid var(--border)" }}>
+          <button
+            onClick={onDelete}
+            style={{
+              background: "transparent",
+              border: "1px solid var(--error)",
+              color: "var(--error)",
+              padding: "8px 16px",
+              borderRadius: 8,
+              cursor: "pointer",
+              fontSize: 13,
+              fontFamily: "inherit",
+            }}
+          >
+            Excluir briefing
+          </button>
+        </div>
+      )}
     </div>
   );
 }

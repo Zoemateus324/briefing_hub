@@ -31,6 +31,7 @@ export type Database = {
           recepcao: string | null
           restricoes: string[]
           spotify: string | null
+          store_id: string | null
           tipo_refeicao: string | null
         }
         Insert: {
@@ -49,6 +50,7 @@ export type Database = {
           recepcao?: string | null
           restricoes?: string[]
           spotify?: string | null
+          store_id?: string | null
           tipo_refeicao?: string | null
         }
         Update: {
@@ -67,7 +69,37 @@ export type Database = {
           recepcao?: string | null
           restricoes?: string[]
           spotify?: string | null
+          store_id?: string | null
           tipo_refeicao?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "briefings_store_id_fkey"
+            columns: ["store_id"]
+            isOneToOne: false
+            referencedRelation: "stores"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      stores: {
+        Row: {
+          created_at: string
+          id: string
+          name: string
+          slug: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          name: string
+          slug: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          name?: string
+          slug?: string
         }
         Relationships: []
       }
@@ -76,27 +108,42 @@ export type Database = {
           created_at: string
           id: string
           role: Database["public"]["Enums"]["app_role"]
+          store_id: string | null
           user_id: string
         }
         Insert: {
           created_at?: string
           id?: string
           role: Database["public"]["Enums"]["app_role"]
+          store_id?: string | null
           user_id: string
         }
         Update: {
           created_at?: string
           id?: string
           role?: Database["public"]["Enums"]["app_role"]
+          store_id?: string | null
           user_id?: string
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "user_roles_store_id_fkey"
+            columns: ["store_id"]
+            isOneToOne: false
+            referencedRelation: "stores"
+            referencedColumns: ["id"]
+          },
+        ]
       }
     }
     Views: {
       [_ in never]: never
     }
     Functions: {
+      can_view_store: {
+        Args: { _store_id: string; _user_id: string }
+        Returns: boolean
+      }
       has_role: {
         Args: {
           _role: Database["public"]["Enums"]["app_role"]
@@ -106,7 +153,7 @@ export type Database = {
       }
     }
     Enums: {
-      app_role: "admin" | "user"
+      app_role: "admin" | "manager" | "staff" | "user"
     }
     CompositeTypes: {
       [_ in never]: never
@@ -234,7 +281,7 @@ export type CompositeTypes<
 export const Constants = {
   public: {
     Enums: {
-      app_role: ["admin", "user"],
+      app_role: ["admin", "manager", "staff", "user"],
     },
   },
 } as const
