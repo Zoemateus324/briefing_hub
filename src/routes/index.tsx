@@ -10,13 +10,13 @@ export const Route = createFileRoute("/")({
       {
         name: "description",
         content:
-          "Briefing personalizado para preparar sua experiência — do cardápio à trilha sonora.",
+          "Personalizado para preparar sua experiência — do cardápio à trilha sonora.",
       },
       { property: "og:title", content: "Briefing de Experiência — Bem-vindo(a)" },
       {
         property: "og:description",
         content:
-          "Briefing personalizado para preparar sua experiência — do cardápio à trilha sonora.",
+          "Personalizado para preparar sua experiência — do cardápio à trilha sonora.",
       },
     ],
   }),
