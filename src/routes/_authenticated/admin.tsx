@@ -172,7 +172,7 @@ function AdminPage() {
         <div style={{ display: "flex", alignItems: "center", gap: 12, flexWrap: "wrap" }}>
           {role === "admin" && (
             <Link
-              to="/_authenticated/lojas"
+              to="/lojas"
               style={{
                 color: "var(--white)",
                 border: "1px solid rgba(255,255,255,0.4)",
