@@ -21,6 +21,11 @@ type Briefing = {
   obs: string | null;
   created_at: string;
   store_id: string | null;
+  stores: {
+    id: string;
+    name: string;
+    slug: string;
+  } | null;
 };
 
 type Store = { id: string; name: string; slug: string };
