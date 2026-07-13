@@ -44,14 +44,8 @@ const TIPOS_REFEICAO: RadioOption[] = [
   { value: "brunch", icon: "🥂", label: "Brunch" },
 ];
 const RESTRICOES: ChipOption[] = [
-
- 
-  { value: "coffee_break", label: "Coffee Break" },
   { value: "doces", label: "Doces" },
   { value: "salgados", label: "Salgados" },
-  { value: "coquetel", label: "Coquetel" },
-
-
 ];
 const BEBIDAS: ChipOption[] = [
   { value: "cafe_coado", label: "☕ Café coado" },
@@ -224,13 +218,10 @@ function BriefingPage() {
         <div className="section">
           <div className="section-label">
             <div className="section-num">1</div>
-            <div className="section-title">Quem é você?</div>
+            <div className="section-title">Como prefere ser chamado?</div>
           </div>
           <div className="field">
-            <label>
-              Como prefere ser chamado(a)?{" "}
-              <span className="hint">nome, apelido — do jeito que se sentir bem</span>
-            </label>
+            
             <input
               id="nome"
               type="text"
@@ -240,21 +231,7 @@ function BriefingPage() {
               style={nomeError ? { borderColor: "var(--error)" } : undefined}
             />
           </div>
-          <div className="field">
-            <label>Quantas pessoas participarão desta experiência?</label>
-            <div className="range-wrap">
-              <input
-                type="range"
-                min={1}
-                max={20}
-                value={pessoas}
-                onChange={(e) => setPessoas(parseInt(e.target.value))}
-              />
-              <div className="range-value">
-                {pessoas} <span>pessoa(s)</span>
-              </div>
-            </div>
-          </div>
+       
         </div>
         <div className="section-divider" />
 
@@ -263,13 +240,10 @@ function BriefingPage() {
         <div className="section">
           <div className="section-label">
             <div className="section-num">2</div>
-            <div className="section-title">O que você gosta de comer?</div>
+            <div className="section-title">Petisco?</div>
           </div>
           <div className="field">
-            <label>
-              Restrições alimentares ou alergias{" "}
-              <span className="hint">selecione todas que se aplicam</span>
-            </label>
+        
             <div className="chip-group">
               {RESTRICOES.map((c) => (
                 <div
@@ -282,16 +256,7 @@ function BriefingPage() {
               ))}
             </div>
           </div>
-          <div className="field">
-            <label>
-              Alimentos que <strong>não</strong> aprecia ou prefere evitar
-            </label>
-            <textarea
-              placeholder="Ex: não gosto de coentro, evito pimenta forte, não como fígado..."
-              value={naoGosta}
-              onChange={(e) => setNaoGosta(e.target.value)}
-            />
-          </div>
+         
           <div className="field">
             <label>
               Quais comidas fazem seus olhos brilharem?{" "}
@@ -327,22 +292,11 @@ function BriefingPage() {
               ))}
             </div>
           </div>
-          <div className="field">
-            <label>
-              Alguma observação sobre bebidas?{" "}
-              <span className="hint">alergias, preferências específicas</span>
-            </label>
-            <input
-              type="text"
-              placeholder="Ex: café sem açúcar, suco de uva sem álcool..."
-              value={bebidaObs}
-              onChange={(e) => setBebidaObs(e.target.value)}
-            />
-          </div>
+         
         </div>
         <div className="section-divider" />
 
-       
+{/* Spotify */}       
 
         <div className="section">
           <div className="section-label">
@@ -390,10 +344,17 @@ function BriefingPage() {
         </div>
         <div className="section-divider" />
 
+
+
+
+
+
+
+{/* Observacoes */}
         <div className="section">
           <div className="section-label">
             <div className="section-num">5</div>
-            <div className="section-title">Mais alguma coisa?</div>
+            <div className="section-title">Observações?</div>
           </div>
           <div className="field">
             <label>
